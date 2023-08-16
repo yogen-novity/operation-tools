@@ -1,0 +1,18 @@
+{
+    "name": "OperationTool",
+    "version": "0.0.0",
+    "description": "OperationTool",
+    "main": "app.js",
+    "author": {
+        "name": "Dev"
+    },
+    "dependencies": {
+        "express": "^4.18.2"
+    },
+    "scripts": {
+        "start": "nodemon ./server/server.js"
+    },
+    "devDependencies": {
+        "nodemon": "^3.0.1"
+    }
+}
