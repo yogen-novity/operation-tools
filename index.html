@@ -293,16 +293,15 @@
                         nodeChildren = addSubNodes(node.subnodes)
                     }
                     if (node?.associations?.length && sensorTree) {
-                        nodeChildren = [sensorTree]
+                        nodeChildren = nodeChildren.concat(sensorTree)
                     }
                     if (algorithmTree) {
-                        nodeChildren= [algorithmTree]
+                        nodeChildren = nodeChildren.concat(algorithmTree)
                     }
                     return {
                         id: node.id,
                         text: node.title,
                         icon: node.type,
-                        // children: node?.subnodes?.length ? addSubNodes(node.subnodes) : []
                         children: nodeChildren
                     }
                 })
