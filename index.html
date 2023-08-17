@@ -4,9 +4,10 @@
 <head>
     <meta charset="utf-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
-    <title>Title</title>
+    <title>Provisioning Util</title>
     <meta name="viewport" content="width=device-width" />
     <link rel="stylesheet" href="//static.jstree.com/latest/assets/dist/themes/default/style.min.css" />
+    <link href="https://code.jquery.com/ui/1.10.4/themes/ui-lightness/jquery-ui.css" rel="stylesheet">
     <style>
         html,
         body {
@@ -27,7 +28,6 @@
         }
 
         #tree {
-            float: left;
             min-width: 319px;
             border-right: 1px solid silver;
             overflow: auto;
@@ -173,21 +173,34 @@
 </head>
 
 <body>
+    <button id="get-tree-data">Get Tree Data</button>
+    <div id="dialog_node">
+        <!-- <form id='f1'>
+            <p>First Name<input type=text id=t1 name=t1><br>
+            Second Name<input type=text id=t2 name=t2>
+        </form> -->
+        <!-- </p> -->
+    </div>
     <div id="container" role="main">
         <div id="tree"></div>
-        <div id="data">
-            <div class="content code" style="display:none;"><textarea id="code" readonly="readonly"></textarea></div>
-            <div class="content folder" style="display:none;"></div>
-            <div class="content image" style="display:none; position:relative;"><img src="" alt=""
-                    style="display:block; position:absolute; left:50%; top:50%; padding:0; max-height:90%; max-width:90%;" />
-            </div>
-            <div class="content default" style="text-align:center;">Select a file from the tree.</div>
-        </div>
     </div>
 
-    <script src="//static.jstree.com/latest/assets/dist/libs/jquery.js"></script>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.7.0/jquery.min.js"></script>
     <script src="//static.jstree.com/latest/assets/dist/jstree.min.js"></script>
+    <script src="https://code.jquery.com/ui/1.13.2/jquery-ui.min.js"></script>
+
     <script>
+        let nodeType = ''
+        let hierarchyData = {}
+        let selectedNode = undefined
+        $("#get-tree-data").on("click", function () {
+            const tree = $('#tree').jstree(true).get_json('#')
+            // const mytext = JSON.stringify(v);
+            console.log('My Tree: ', tree)
+            if (tree.length) {
+
+            }
+        });
         const associationMapForSensors = {}
         const findNodeById = (nodes, id) => {
             if (!nodes.length) {
@@ -199,7 +212,7 @@
                 } else {
                     nodes.forEach(node => {
                         if (node?.subnodes?.length) {
-                            findNodeById(node.subnodes)
+                            findNodeById(node.subnodes, id)
                         }
                     })
                 }
@@ -229,14 +242,24 @@
                     let algorithmTree = undefined
                     if (node?.associations?.length) {
                         sensorTree = {
-                            text: 'Sensors'
+                            text: 'Sensors',
+                            data: {
+                                allowEdit: false,
+                                node: associationMapForSensors[node.id]
+                            }
                         }
                         const sensorChildrens = []
                         node.associations.forEach((assoc) => {
                             if (assoc.association_type === 'attached_sensor') {
                                 sensorChildrens.push({
                                     text: associationMapForSensors[assoc.associated_node_id].title,
-                                    icon: associationMapForSensors[assoc.associated_node_id].type
+                                    icon: associationMapForSensors[assoc.associated_node_id].type,
+                                    data: {
+                                        sensorId: assoc.associated_node_id,
+                                        allowEdit: false,
+                                        sensorNode: associationMapForSensors[assoc.associated_node_id],
+                                        node: associationMapForSensors[node.id]
+                                    }
                                 })
                             }
                         })
@@ -244,7 +267,10 @@
                     }
                     if (node?.algorithms?.length) {
                         algorithmTree = {
-                            text: 'Algorithm'
+                            text: 'Algorithm',
+                            data: {
+                                allowEdit: false
+                            }
                         }
                         let algorithmChidrens = []
                         algorithmChidrens = node.algorithms.map((alg) => {
@@ -255,13 +281,25 @@
                             if (params.length) {
                                 paramTree = {
                                     text: 'Params',
+                                    data: {
+                                        allowEdit: false,
+                                        node: associationMapForSensors[node.id]
+                                    }
                                 }
                                 const paramChidren = params.map(param => {
                                     return {
                                         text: param.parameter_name,
                                         children: [{
-                                            text: param.value
-                                        }]
+                                            text: param.value,
+                                            data: {
+                                                allowEdit: false,
+                                                node: associationMapForSensors[node.id]
+                                            }
+                                        }],
+                                        data: {
+                                            allowEdit: false,
+                                            node: associationMapForSensors[node.id]
+                                        }
                                     }
                                 })
                                 paramTree.children = paramChidren
@@ -275,15 +313,30 @@
                                     return {
                                         text: input.input_name,
                                         children: [{
-                                            text: associationMapForSensors[input.sensor_node_id].title
-                                        }]
+                                            text: associationMapForSensors[input.sensor_node_id].title,
+                                            data: {
+                                                sensorId: input.sensor_node_id,
+                                                allowEdit: false,
+                                                node: associationMapForSensors[node.id],
+                                                sensorNode: associationMapForSensors[input.sensor_node_id]
+                                            }
+                                        }],
+                                        data: {
+                                            sensorId: input.sensor_node_id,
+                                            allowEdit: false,
+                                            node: associationMapForSensors[node.id],
+                                            sensorNode: associationMapForSensors[input.sensor_node_id]
+                                        }
                                     }
                                 })
                                 inputTree.children = inputChildren
                             }
                             return {
                                 text: alg.algorithm_name,
-                                children: [paramTree, inputTree]
+                                children: [paramTree, inputTree],
+                                data: {
+                                    node: associationMapForSensors[node.id]
+                                }
                             }
                         })
                         algorithmTree.children = algorithmChidrens
@@ -302,41 +355,128 @@
                         id: node.id,
                         text: node.title,
                         icon: node.type,
-                        children: nodeChildren
+                        children: nodeChildren,
+                        data: {
+                            node: associationMapForSensors[node.id]
+                        }
                     }
                 })
             }
         }
 
         $(function () {
+            /////////
+            $(function () {
+                $(document).on("submit", "#org-dialog-form", function(e){
+                    e.preventDefault()
+                    console.log('Form is submitted', e)
+                    const $inputs = $('#org-dialog-form :input[type="text"]');
+                    console.log('Input fields: ', )
+                    const values = {};
+                    $inputs.each(function() {
+                        values[this.name] = $(this).val();
+                    });
+                    const foundNode = findNodeById(hierarchyData.subnodes, selectedNode.id)
+                    if (foundNode) {
+                        foundNode.title = values.title
+                    }
+                    console.log('Values: ', values)
+                    generateAssociationMap(hierarchyData.subnodes)
+                    console.log('Association by id: ', associationMapForSensors)
+                    const subNodes = addSubNodes(hierarchyData.subnodes)
+                    const rootNode = {
+                        text: hierarchyData.title,
+                        id: hierarchyData.id,
+                        icon: hierarchyData.type,
+                        state: {
+                            'opened': true,
+                            'selected': true
+                        },
+                        data: {
+                            node: hierarchyData
+                        },
+                        children: subNodes
+                    }
+                    $('#tree').jstree(true).settings.core.data = rootNode;
+                    $('#tree').jstree(true).refresh()
+                    $("#dialog_node").dialog('close')
+                    return false
+                });
+                var pos = { my: "center center", at: "center top+150", of: window };
+                $("#dialog_node").dialog({
+                    autoOpen: false,
+                    position: pos,
+                    modal: true,
+                    title: selectedNode?.title || '',
+                    open: function () {
+                        var markup = ''
+                        console.log('Selected node: ', selectedNode)
+                        if (selectedNode.type === 'org') {
+                            markup = `<form id='${selectedNode.type}-dialog-form'>
+                                        <div>
+                                            <label>Title: </label>
+                                            <input type='text' name='title' value='${selectedNode.title}' />
+                                        </div>
+                                        <p>Attributes:</p>
+                                        <div>
+                                            <label>Address: </label>
+                                            <input type='text' name='address' value='${selectedNode.entity.attributes.address}' />
+                                        </div>
+                                        <div>
+                                            <label>Company: </label>
+                                            <input type='text' name='company' value='${selectedNode.entity.attributes.company}' />
+                                        </div>
+                                        <div>
+                                            <label>Country: </label>
+                                            <input type='text' name='country' value='${selectedNode.entity.attributes.country}' />
+                                        </div>
+                                        <div>
+                                            <input id='org-form-sub' class='ui-button ui-widget ui-corner-all' type='submit' value='Submit' />
+                                        </div>
+                                      </form>`
+                        }
+                        $(this).html(markup);
+                    },
+                    buttons: {
+                        "Close": function () {
+                            $(this).dialog("close");
+                        },
+                        "Submit": function () {
+                            // $('#msg').html($("#f1").serialize());
+                            $(this).dialog("close");
+                        }
+                    }
+                });
+            });
             $(window).resize(function () {
                 var h = Math.max($(window).height() - 0, 420);
                 $('#container, #data, #tree, #data .content').height(h).filter('.default').css('lineHeight', h + 'px');
             }).resize();
-            $.get('data', (hierarchyData) => {
-                console.log('In get Data: ', hierarchyData)
-                const newHierarchyData = Object.assign({})
+            $.get('data', (data) => {
+                console.log('In get Data: ', data)
                 let rootNode
-                if (hierarchyData.hierarchy) {
-                    generateAssociationMap(hierarchyData.hierarchy.subnodes)
+                if (data.hierarchy) {
+                    hierarchyData = data.hierarchy
+                    generateAssociationMap(hierarchyData.subnodes)
                     console.log('Association by id: ', associationMapForSensors)
-                    const subNodes = addSubNodes(hierarchyData.hierarchy.subnodes)
+                    const subNodes = addSubNodes(hierarchyData.subnodes)
                     rootNode = {
-                        text: hierarchyData.hierarchy.title,
-                        id: hierarchyData.hierarchy.id,
-                        icon: hierarchyData.hierarchy.type,
+                        text: hierarchyData.title,
+                        id: hierarchyData.id,
+                        icon: hierarchyData.type,
                         state: {
                             'opened': true,
                             'selected': true
+                        },
+                        data: {
+                            node: hierarchyData
                         },
                         children: subNodes
                     }
                 }
                 $('#tree').jstree({
                     'core': {
-                        data: [
-                            rootNode
-                        ],
+                        data: rootNode,
                         'check_callback': function (o, n, p, i, m) {
                             if (m && m.dnd && m.pos !== 'i') { return false; }
                             if (o === "move_node" || o === "copy_node") {
@@ -398,93 +538,106 @@
                     },
                     'plugins': ['state', 'dnd', 'sort', 'types', 'contextmenu', 'unique']
                 })
+
+                    // .on('delete_node.jstree', function (e, data) {
+                    // 	$.get('?operation=delete_node', { 'id' : data.node.id })
+                    // 		.fail(function () {
+                    // 			data.instance.refresh();
+                    // 		});
+                    // })
+                    // .on('create_node.jstree', function (e, data) {
+                    // 	$.get('?operation=create_node', { 'type' : data.node.type, 'id' : data.node.parent, 'text' : data.node.text })
+                    // 		.done(function (d) {
+                    // 			data.instance.set_id(data.node, d.id);
+                    // 		})
+                    // 		.fail(function () {
+                    // 			data.instance.refresh();
+                    // 		});
+                    // })
+                    .on('select_node.jstree', function (evt, data) {
+                        console.log('In select node: ', data)
+                        selectedNode = data.node.data.node
+                        $("#dialog_node").dialog("open")
+                    })
+                    .on('rename_node.jstree', function (e, data) {
+                        console.log('In rename', e, data)
+                        // if (data.node.data?.allowEdit) {
+
+                        // } else {
+                        //     data.instance.refresh();
+                        // }
+                        // $.get('?operation=rename_node', { 'id' : data.node.id, 'text' : data.text })
+                        // 	.done(function (d) {
+                        // 		data.instance.set_id(data.node, d.id);
+                        // 	})
+                        // 	.fail(function () {
+                        // 		data.instance.refresh();
+                        // 	});
+                    })
+                // .on('move_node.jstree', function (e, data) {
+                // 	$.get('?operation=move_node', { 'id' : data.node.id, 'parent' : data.parent })
+                // 		.done(function (d) {
+                // 			//data.instance.load_node(data.parent);
+                // 			data.instance.refresh();
+                // 		})
+                // 		.fail(function () {
+                // 			data.instance.refresh();
+                // 		});
+                // })
+                // .on('copy_node.jstree', function (e, data) {
+                // 	$.get('?operation=copy_node', { 'id' : data.original.id, 'parent' : data.parent })
+                // 		.done(function (d) {
+                // 			//data.instance.load_node(data.parent);
+                // 			data.instance.refresh();
+                // 		})
+                // 		.fail(function () {
+                // 			data.instance.refresh();
+                // 		});
+                // })
+                // .on('changed.jstree', function (e, data) {
+                // 	if(data && data.selected && data.selected.length) {
+                // 		$.get('?operation=get_content&id=' + data.selected.join(':'), function (d) {
+                // 			if(d && typeof d.type !== 'undefined') {
+                // 				$('#data .content').hide();
+                // 				switch(d.type) {
+                // 					case 'text':
+                // 					case 'txt':
+                // 					case 'md':
+                // 					case 'htaccess':
+                // 					case 'log':
+                // 					case 'sql':
+                // 					case 'php':
+                // 					case 'js':
+                // 					case 'json':
+                // 					case 'css':
+                // 					case 'html':
+                // 						$('#data .code').show();
+                // 						$('#code').val(d.content);
+                // 						break;
+                // 					case 'png':
+                // 					case 'jpg':
+                // 					case 'jpeg':
+                // 					case 'bmp':
+                // 					case 'gif':
+                // 						$('#data .image img').one('load', function () { $(this).css({'marginTop':'-' + $(this).height()/2 + 'px','marginLeft':'-' + $(this).width()/2 + 'px'}); }).attr('src',d.content);
+                // 						$('#data .image').show();
+                // 						break;
+                // 					default:
+                // 						$('#data .default').html(d.content).show();
+                // 						break;
+                // 				}
+                // 			}
+                // 		});
+                // 	}
+                // 	else {
+                // 		$('#data .content').hide();
+                // 		$('#data .default').html('Select a file from the tree.').show();
+                // 	}
+                // });
             })
-            // .on('delete_node.jstree', function (e, data) {
-            // 	$.get('?operation=delete_node', { 'id' : data.node.id })
-            // 		.fail(function () {
-            // 			data.instance.refresh();
-            // 		});
-            // })
-            // .on('create_node.jstree', function (e, data) {
-            // 	$.get('?operation=create_node', { 'type' : data.node.type, 'id' : data.node.parent, 'text' : data.node.text })
-            // 		.done(function (d) {
-            // 			data.instance.set_id(data.node, d.id);
-            // 		})
-            // 		.fail(function () {
-            // 			data.instance.refresh();
-            // 		});
-            // })
-            // .on('rename_node.jstree', function (e, data) {
-            // 	$.get('?operation=rename_node', { 'id' : data.node.id, 'text' : data.text })
-            // 		.done(function (d) {
-            // 			data.instance.set_id(data.node, d.id);
-            // 		})
-            // 		.fail(function () {
-            // 			data.instance.refresh();
-            // 		});
-            // })
-            // .on('move_node.jstree', function (e, data) {
-            // 	$.get('?operation=move_node', { 'id' : data.node.id, 'parent' : data.parent })
-            // 		.done(function (d) {
-            // 			//data.instance.load_node(data.parent);
-            // 			data.instance.refresh();
-            // 		})
-            // 		.fail(function () {
-            // 			data.instance.refresh();
-            // 		});
-            // })
-            // .on('copy_node.jstree', function (e, data) {
-            // 	$.get('?operation=copy_node', { 'id' : data.original.id, 'parent' : data.parent })
-            // 		.done(function (d) {
-            // 			//data.instance.load_node(data.parent);
-            // 			data.instance.refresh();
-            // 		})
-            // 		.fail(function () {
-            // 			data.instance.refresh();
-            // 		});
-            // })
-            // .on('changed.jstree', function (e, data) {
-            // 	if(data && data.selected && data.selected.length) {
-            // 		$.get('?operation=get_content&id=' + data.selected.join(':'), function (d) {
-            // 			if(d && typeof d.type !== 'undefined') {
-            // 				$('#data .content').hide();
-            // 				switch(d.type) {
-            // 					case 'text':
-            // 					case 'txt':
-            // 					case 'md':
-            // 					case 'htaccess':
-            // 					case 'log':
-            // 					case 'sql':
-            // 					case 'php':
-            // 					case 'js':
-            // 					case 'json':
-            // 					case 'css':
-            // 					case 'html':
-            // 						$('#data .code').show();
-            // 						$('#code').val(d.content);
-            // 						break;
-            // 					case 'png':
-            // 					case 'jpg':
-            // 					case 'jpeg':
-            // 					case 'bmp':
-            // 					case 'gif':
-            // 						$('#data .image img').one('load', function () { $(this).css({'marginTop':'-' + $(this).height()/2 + 'px','marginLeft':'-' + $(this).width()/2 + 'px'}); }).attr('src',d.content);
-            // 						$('#data .image').show();
-            // 						break;
-            // 					default:
-            // 						$('#data .default').html(d.content).show();
-            // 						break;
-            // 				}
-            // 			}
-            // 		});
-            // 	}
-            // 	else {
-            // 		$('#data .content').hide();
-            // 		$('#data .default').html('Select a file from the tree.').show();
-            // 	}
-            // });
         });
     </script>
+
 </body>
 
 </html>
