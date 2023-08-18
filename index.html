@@ -377,8 +377,18 @@
                         values[this.name] = $(this).val();
                     });
                     const foundNode = findNodeById(hierarchyData.subnodes, selectedNode.id)
-                    if (foundNode) {
+                    if (foundNode.type === 'org') {
                         foundNode.title = values.title
+                        if (foundNode.entity?.attributes) {
+                            const keyVal = Object.entries(selectedNode.entity?.attributes)
+                            if (keyVal.length) {
+                                keyVal.forEach(o => {
+                                    if (values[o[0]]) {
+                                        foundNode.entity.attributes[o[0]] = values[o[0]]
+                                    }
+                                })
+                            }
+                        }
                     }
                     console.log('Values: ', values)
                     generateAssociationMap(hierarchyData.subnodes)
@@ -411,25 +421,26 @@
                     open: function () {
                         var markup = ''
                         console.log('Selected node: ', selectedNode)
+                        if (selectedNode?.entity?.attributes) {
+                            const keyVal = Object.entries(selectedNode.entity.attributes)
+                            attrsMarkup = []
+                            if (keyVal.length) {
+                                attrsMarkup = keyVal.map(o => {
+                                    return `<div>
+                                                <label>${o[0]}</label>
+                                                <input type='text' name='${o[0]}' value='${o[1]}' />
+                                            </div>`
+                                })
+                            }
+                        }
                         if (selectedNode.type === 'org') {
-                            markup = `<form id='${selectedNode.type}-dialog-form'>
+                            markup = `<form id='org-dialog-form'>
                                         <div>
                                             <label>Title: </label>
                                             <input type='text' name='title' value='${selectedNode.title}' />
                                         </div>
                                         <p>Attributes:</p>
-                                        <div>
-                                            <label>Address: </label>
-                                            <input type='text' name='address' value='${selectedNode.entity.attributes.address}' />
-                                        </div>
-                                        <div>
-                                            <label>Company: </label>
-                                            <input type='text' name='company' value='${selectedNode.entity.attributes.company}' />
-                                        </div>
-                                        <div>
-                                            <label>Country: </label>
-                                            <input type='text' name='country' value='${selectedNode.entity.attributes.country}' />
-                                        </div>
+                                        ${attrsMarkup.join('')}
                                         <div>
                                             <input id='org-form-sub' class='ui-button ui-widget ui-corner-all' type='submit' value='Submit' />
                                         </div>
@@ -555,9 +566,11 @@
                     // 		});
                     // })
                     .on('select_node.jstree', function (evt, data) {
-                        console.log('In select node: ', data)
+                        console.log('In select node: ', evt, data)
                         selectedNode = data.node.data.node
-                        $("#dialog_node").dialog("open")
+                        if (data?.event?.handleObj?.type === 'click') {
+                            $("#dialog_node").dialog("open")
+                        }
                     })
                     .on('rename_node.jstree', function (e, data) {
                         console.log('In rename', e, data)
