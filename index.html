@@ -193,6 +193,94 @@
         let nodeType = ''
         let hierarchyData = {}
         let selectedNode = undefined
+        const GatewayModel = {
+            id: '',
+            type: '',
+            title: '',
+            description: '',
+            category: '',
+            entity : {
+                external_id : '',
+                certificate : '',
+                attributes : {
+                    'installation.date' : ''
+                }
+            },
+            subnodes: []
+        }
+        const DaqDeviceModel = {
+            id: '',
+            type: '',
+            title: '',
+            category: '',
+            entity : {
+              profile : '',
+              address : ''
+            },
+            subnodes: []
+        }
+        const SensorModel = {
+            id: '',
+            type: '',
+            title: '',
+            description: '',
+            category: '',
+            subcategory: '',
+            entity : {
+                profile : '',
+                uom : '',
+                address : "0",
+                features : [],
+                gateway_store_data : false,
+                gateway_send_data : false,
+                gateway_store_features : false,
+                gateway_send_features : true,
+                attributes : {
+                    'hardware.manufacturer' : '',
+                    'hardware.model' : '',
+                    'installation.date' : ''
+                }
+            }
+        }
+        const EquipmentModel = {
+            id: '',
+            type: '',
+            title: '',
+            description: '',
+            category: '',
+            subcategory: '',
+            image: '',
+            associations: [],
+            algorithms: [],
+            entity: {
+                attributes: {
+                    risk_profile : '',
+                    'hardware.manufacturer' : '',
+                    'hardware.serial_number' : '',
+                    ot_system_tag : ''
+                }
+            },
+            subnodes: []
+        }
+        const OrgModel = {
+            id: '',
+            type: '',
+            title: '',
+            entity: {
+                attributes: {
+                    address: '',
+                    company: '',
+                    country: ''
+                }
+            },
+            subnodes: []
+        }
+        const HierarchyModel = {
+            id: '',
+            type: '',
+            title: '',
+            subnodes: []
+        }
         $("#get-tree-data").on("click", function () {
             const tree = $('#tree').jstree(true).get_json('#')
             // const mytext = JSON.stringify(v);
@@ -377,17 +465,22 @@
                         values[this.name] = $(this).val();
                     });
                     const foundNode = findNodeById(hierarchyData.subnodes, selectedNode.id)
-                    if (foundNode.type === 'org') {
-                        foundNode.title = values.title
-                        if (foundNode.entity?.attributes) {
-                            const keyVal = Object.entries(selectedNode.entity?.attributes)
-                            if (keyVal.length) {
-                                keyVal.forEach(o => {
-                                    if (values[o[0]]) {
-                                        foundNode.entity.attributes[o[0]] = values[o[0]]
-                                    }
-                                })
+                    const keyValFirstLevel = Object.entries(selectedNode)
+                    if (foundNode && keyValFirstLevel.length) {
+                        keyValFirstLevel.forEach(o => {
+                            if (values[o[0]]) {
+                                foundNode[o[0]] = values[o[0]]
                             }
+                        })
+                    }
+                    if (foundNode?.entity?.attributes) {
+                        const keyVal = Object.entries(selectedNode.entity?.attributes)
+                        if (keyVal.length) {
+                            keyVal.forEach(o => {
+                                if (values[o[0]]) {
+                                    foundNode.entity.attributes[o[0]] = values[o[0]]
+                                }
+                            })
                         }
                     }
                     console.log('Values: ', values)
@@ -412,40 +505,115 @@
                     $("#dialog_node").dialog('close')
                     return false
                 });
+                handleAssociationDelete = (id) => {
+                    console.log('In handle delete association: ', id)
+                }
+                handleAssociateNewSensor = () => {
+                    console.log('In handle Add association: ')
+                    return
+                }
+                
                 var pos = { my: "center center", at: "center top+150", of: window };
                 $("#dialog_node").dialog({
                     autoOpen: false,
                     position: pos,
                     modal: true,
+                    closeOnEscape: true,
                     title: selectedNode?.title || '',
                     open: function () {
+                        setTimeout(() => {
+                            $('.algo-params').accordion({
+                                collapsible: true,
+                                active: false
+                            })
+                        }, 100)
                         var markup = ''
                         console.log('Selected node: ', selectedNode)
+                        let attrsMarkup = []
+                        let firstLevelFieldsMarkup = []
+                        let associationMarkup = []
+                        let algorithmMarkup = []
+                            
+                        if (selectedNode) {
+                            const keyValFirstLevel = Object.entries(selectedNode)
+                            if (keyValFirstLevel.length) {
+                                keyValFirstLevel.forEach(o => {
+                                    if (typeof o[1] === 'string') {
+                                        firstLevelFieldsMarkup.push(`<div>
+                                                <label>${o[0]}</label>
+                                                <input type='text' name='${o[0]}' value='${o[1]}' />
+                                            </div>`)
+                                    } else if (typeof o[1] === 'object') {
+                                        if (o[0] === 'associations') {
+                                            if (o[1]?.length) {
+                                                associationMarkup = o[1].map(assoc => {
+                                                    return `<div style="display: flex">
+                                                                <span>${assoc.association_type}: ${associationMapForSensors[assoc.associated_node_id].title}</span>
+                                                                <span style="cursor: pointer" class="ui-icon ui-icon-trash" onclick='handleAssociationDelete("${assoc.associated_node_id}")'></span>
+                                                            </div>`
+                                                })
+                                            }
+                                            associationMarkup.push(`<div>
+                                                <div style='display: flex' class="ui-button ui-widget ui-corner-all" onclick='handleAssociateNewSensor()'><span class='ui-icon ui-icon-circle-plus'></span>Associate new sensor</div>
+                                                </div>`)
+                                        } else if (o[0] === 'algorithms') {
+                                            if (o[1]?.length) {
+                                                algorithmMarkup = o[1].map(alg => {
+                                                    let paramMarkup = []
+                                                    const algoName = alg.algorithm_name
+                                                    const params = alg?.parameters || []
+                                                    if (params?.length) {
+                                                        paramMarkup = params.map(param => {
+                                                            return `<div>
+                                                                        <label>${param.parameter_name}</label>
+                                                                        <input type='text' name='${algoName}-${param.parameter_name}' value='${param.value}' />
+                                                                      </div>`
+                                                        })
+                                                    }
+                                                    return `<div>
+                                                                <label>Name</label>
+                                                                <input type='text' name='name' value='${algoName}' />
+                                                                <div class='algo-params'>
+                                                                    <h3>Parameters</h3>
+                                                                    <div>
+                                                                        ${paramMarkup.join('')}
+                                                                    </div>
+                                                                </div>
+                                                            </div>`
+                                                })
+                                            }
+                                        }
+                                    }
+                                })
+                            }
+                        }
                         if (selectedNode?.entity?.attributes) {
                             const keyVal = Object.entries(selectedNode.entity.attributes)
-                            attrsMarkup = []
                             if (keyVal.length) {
                                 attrsMarkup = keyVal.map(o => {
                                     return `<div>
-                                                <label>${o[0]}</label>
+                                                <label><strong>${o[0]}</strong></label>
                                                 <input type='text' name='${o[0]}' value='${o[1]}' />
                                             </div>`
                                 })
                             }
                         }
-                        if (selectedNode.type === 'org') {
-                            markup = `<form id='org-dialog-form'>
-                                        <div>
-                                            <label>Title: </label>
-                                            <input type='text' name='title' value='${selectedNode.title}' />
-                                        </div>
-                                        <p>Attributes:</p>
-                                        ${attrsMarkup.join('')}
-                                        <div>
-                                            <input id='org-form-sub' class='ui-button ui-widget ui-corner-all' type='submit' value='Submit' />
-                                        </div>
-                                      </form>`
-                        }
+                        markup = `<form id='org-dialog-form'>
+                                    ${firstLevelFieldsMarkup.join('')}
+                                    
+                                    ${attrsMarkup.length ? '<h4>Attributes:</h4>' : ''}
+                                    ${attrsMarkup.join('')}
+                                    
+                                    ${associationMarkup.length ? '<h4>Associations:</h4>' : ''}
+                                    ${associationMarkup.join('')}
+
+                                    ${algorithmMarkup.length ? '<h4>Algorithms:</h4>' : ''}
+                                    ${algorithmMarkup.join('')}
+
+                                    <div>
+                                        <input id='org-form-sub' class='ui-button ui-widget ui-corner-all' type='submit' value='Submit' />
+                                    </div>
+                                    </form>`
                         $(this).html(markup);
                     },
                     buttons: {
