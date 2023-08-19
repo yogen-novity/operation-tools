@@ -4,6 +4,7 @@ var app = express();
 
 //Serves all the request which includes /images in the url from Images folder
 app.use('/images', express.static(__dirname + '/Images'));
+app.use(express.static(path.join(__dirname, "js")));
 
 
 //setting middleware

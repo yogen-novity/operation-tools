@@ -188,8 +188,19 @@
     <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.7.0/jquery.min.js"></script>
     <script src="//static.jstree.com/latest/assets/dist/jstree.min.js"></script>
     <script src="https://code.jquery.com/ui/1.13.2/jquery-ui.min.js"></script>
+    <script type="text/javascript" src="./loadash.js"></script>
 
     <script>
+        function generateUUID() {
+            var d = new Date().getTime();
+            var uuid = 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+                var r = (d + Math.random()*16)%16 | 0;
+                d = Math.floor(d/16);
+                return (c=='x' ? r : (r&0x3|0x8)).toString(16);
+            });
+            return uuid;
+        };
+
         let nodeType = ''
         let hierarchyData = {}
         let selectedNode = undefined
@@ -304,20 +315,6 @@
             return null;
         }
 
-        // const findNodeById = (id, node) => {
-        //     const foundNode = nodes.find(node => node.id === id)
-        //     if (foundNode) {
-        //         return foundNode
-        //     } else {
-        //         let result
-        //         nodes.forEach(node => {
-        //             if (node?.subnodes?.length) {
-        //                 result = findNodeById(node.subnodes, id)
-        //             }
-        //         })
-        //         return result
-        //     }
-        // }
         const generateAssociationMap = (nodes) => {
             if (!nodes.length) {
                 return
@@ -464,6 +461,104 @@
             }
         }
 
+        const generateDialogHTML = (node) => {
+            // const node = Object.assign({}, oNode)
+            var markup = ''
+            console.log('Selected node: ', node)
+            let attrsMarkup = []
+            let firstLevelFieldsMarkup = []
+            let associationMarkup = []
+            let algorithmMarkup = []
+                
+            if (node) {
+                const keyValFirstLevel = Object.entries(node)
+                if (keyValFirstLevel.length) {
+                    keyValFirstLevel.forEach(o => {
+                        if (typeof o[1] === 'string') {
+                            firstLevelFieldsMarkup.push(`<div>
+                                    <label>${o[0]}</label>
+                                    <input type='text' name='${o[0]}' value='${o[1]}' />
+                                </div>`)
+                        } else if (typeof o[1] === 'object') {
+                            if (o[0] === 'associations') {
+                                if (o[1]?.length) {
+                                    associationMarkup = o[1].map(assoc => {
+                                        return `<div style="display: flex">
+                                                    <span>${assoc.association_type}: ${associationMapForSensors[assoc.associated_node_id].title}</span>
+                                                    <span style="cursor: pointer" class="ui-icon ui-icon-trash" onclick='handleDeleteSensorAssociation("${assoc.associated_node_id}")'></span>
+                                                </div>`
+                                    })
+                                }
+                                associationMarkup.push(`<div>
+                                    <div style='display: flex' class="ui-button ui-widget ui-corner-all" onclick='handleAssociateNewSensor()'><span class='ui-icon ui-icon-circle-plus'></span>Associate new sensor</div>
+                                    </div>`)
+                            } else if (o[0] === 'algorithms') {
+                                if (o[1]?.length) {
+                                    algorithmMarkup = o[1].map(alg => {
+                                        let paramMarkup = []
+                                        const algoName = alg.algorithm_name
+                                        const params = alg?.parameters || []
+                                        if (params?.length) {
+                                            paramMarkup = params.map(param => {
+                                                return `<div>
+                                                            <label>${param.parameter_name}</label>
+                                                            <input type='text' name='${algoName}::${param.parameter_name}' value='${param.value}' />
+                                                            </div>`
+                                            })
+                                        }
+                                        return `<div>
+                                                    <div style='display: flex'>
+                                                    <label>Name: </label>
+                                                    <input type='text' name='${algoName}-name' value='${algoName}' />
+                                                    <span style="cursor: pointer" class="ui-icon ui-icon-trash" onclick='handleDeleteAlgorithmAssociation("${algoName}")'></span>
+                                                    </div>
+                                                    <div class='algo-params'>
+                                                        <h3>Parameters</h3>
+                                                        <div>
+                                                            ${paramMarkup.join('')}
+                                                        </div>
+                                                    </div>
+                                                </div>`
+                                    })
+                                }
+                                algorithmMarkup.push(`<div>
+                                    <div style='display: flex' class="ui-button ui-widget ui-corner-all" onclick='handleAssociateNewAlgotithm()'><span class='ui-icon ui-icon-circle-plus'></span>Associate new Algorithm</div>
+                                    </div>`)
+                            }
+                        }
+                    })
+                }
+            }
+            if (node?.entity?.attributes) {
+                const keyVal = Object.entries(node.entity.attributes)
+                if (keyVal.length) {
+                    attrsMarkup = keyVal.map(o => {
+                        return `<div>
+                                    <label><strong>${o[0]}</strong></label>
+                                    <input type='text' name='${o[0]}' value='${o[1]}' />
+                                </div>`
+                    })
+                }
+            }
+            markup = `<form id='org-dialog-form'>
+                        ${firstLevelFieldsMarkup.join('')}
+                        
+                        ${attrsMarkup.length ? '<h4>Attributes:</h4>' : ''}
+                        ${attrsMarkup.join('')}
+                        
+                        ${associationMarkup.length ? '<h4>Associations:</h4>' : ''}
+                        ${associationMarkup.join('')}
+
+                        ${algorithmMarkup.length ? '<h4>Algorithms:</h4>' : ''}
+                        ${algorithmMarkup.join('')}
+
+                        <div>
+                            <input id='org-form-sub' class='ui-button ui-widget ui-corner-all' type='submit' value='Submit' />
+                        </div>
+                        </form>`
+            return markup
+        }
+
         $(function () {
             /////////
             $(function () {
@@ -475,7 +570,13 @@
                     $inputs.each(function() {
                         values[this.name] = $(this).val();
                     });
+                    if (associationState.new) {
+                        selectedNode = {...selectedNode, associations: associationState.new.associations}
+                    }
                     const foundNode = searchTree(hierarchyData, selectedNode.id)
+                    if (associationState.new) {
+                        foundNode.associations = associationState.new.associations
+                    }
                     const keyValFirstLevel = Object.entries(selectedNode)
                     if (foundNode && keyValFirstLevel.length) {
                         keyValFirstLevel.forEach(o => {
@@ -531,12 +632,40 @@
                     $("#dialog_node").dialog('close')
                     return false
                 });
-                handleAssociationDelete = (id) => {
+                let associationState = {
+                    old: undefined,
+                    new: undefined
+                }
+                handleDeleteSensorAssociation = (id) => {
                     console.log('In handle delete association: ', id)
+                    if (!associationState.old) {
+                        associationState.old = _.cloneDeep(selectedNode)
+                    }
+                    if (!associationState.new) {
+                        associationState.new = _.cloneDeep(associationState.old)
+                    }
+                    associationState.new
+                    
+                    const associations = associationState.new?.associations || []
+                    if (associations.length) {
+                        const assocIndex = associations.findIndex(association => association.associated_node_id === id)
+                        if (assocIndex >= 0) {
+                            associations.splice(assocIndex, 1)
+                            const markup = generateDialogHTML(associationState.new)
+                            $("#dialog_node").html(markup)
+                        }
+                    }
                 }
                 handleAssociateNewSensor = () => {
                     console.log('In handle Add association: ')
-                    return
+                }
+
+                handleAssociateNewAlgotithm = () => {
+                    console.log('In handle Add Algorithm')
+                }
+
+                handleDeleteAlgorithmAssociation = (algorithmName) => {
+                    console.log('In handle Delete Algorithm', algorithmName)
                 }
                 
                 var pos = { my: "center center", at: "center top+150", of: window };
@@ -553,103 +682,23 @@
                                 active: false
                             })
                         }, 100)
-                        var markup = ''
-                        console.log('Selected node: ', selectedNode)
-                        let attrsMarkup = []
-                        let firstLevelFieldsMarkup = []
-                        let associationMarkup = []
-                        let algorithmMarkup = []
-                            
-                        if (selectedNode) {
-                            const keyValFirstLevel = Object.entries(selectedNode)
-                            if (keyValFirstLevel.length) {
-                                keyValFirstLevel.forEach(o => {
-                                    if (typeof o[1] === 'string') {
-                                        firstLevelFieldsMarkup.push(`<div>
-                                                <label>${o[0]}</label>
-                                                <input type='text' name='${o[0]}' value='${o[1]}' />
-                                            </div>`)
-                                    } else if (typeof o[1] === 'object') {
-                                        if (o[0] === 'associations') {
-                                            if (o[1]?.length) {
-                                                associationMarkup = o[1].map(assoc => {
-                                                    return `<div style="display: flex">
-                                                                <span>${assoc.association_type}: ${associationMapForSensors[assoc.associated_node_id].title}</span>
-                                                                <span style="cursor: pointer" class="ui-icon ui-icon-trash" onclick='handleAssociationDelete("${assoc.associated_node_id}")'></span>
-                                                            </div>`
-                                                })
-                                            }
-                                            associationMarkup.push(`<div>
-                                                <div style='display: flex' class="ui-button ui-widget ui-corner-all" onclick='handleAssociateNewSensor()'><span class='ui-icon ui-icon-circle-plus'></span>Associate new sensor</div>
-                                                </div>`)
-                                        } else if (o[0] === 'algorithms') {
-                                            if (o[1]?.length) {
-                                                algorithmMarkup = o[1].map(alg => {
-                                                    let paramMarkup = []
-                                                    const algoName = alg.algorithm_name
-                                                    const params = alg?.parameters || []
-                                                    if (params?.length) {
-                                                        paramMarkup = params.map(param => {
-                                                            return `<div>
-                                                                        <label>${param.parameter_name}</label>
-                                                                        <input type='text' name='${algoName}::${param.parameter_name}' value='${param.value}' />
-                                                                      </div>`
-                                                        })
-                                                    }
-                                                    return `<div>
-                                                                <label>Name: </label>
-                                                                <input type='text' name='${algoName}-name' value='${algoName}' />
-                                                                <div class='algo-params'>
-                                                                    <h3>Parameters</h3>
-                                                                    <div>
-                                                                        ${paramMarkup.join('')}
-                                                                    </div>
-                                                                </div>
-                                                            </div>`
-                                                })
-                                            }
-                                        }
-                                    }
-                                })
-                            }
-                        }
-                        if (selectedNode?.entity?.attributes) {
-                            const keyVal = Object.entries(selectedNode.entity.attributes)
-                            if (keyVal.length) {
-                                attrsMarkup = keyVal.map(o => {
-                                    return `<div>
-                                                <label><strong>${o[0]}</strong></label>
-                                                <input type='text' name='${o[0]}' value='${o[1]}' />
-                                            </div>`
-                                })
-                            }
-                        }
-                        markup = `<form id='org-dialog-form'>
-                                    ${firstLevelFieldsMarkup.join('')}
-                                    
-                                    ${attrsMarkup.length ? '<h4>Attributes:</h4>' : ''}
-                                    ${attrsMarkup.join('')}
-                                    
-                                    ${associationMarkup.length ? '<h4>Associations:</h4>' : ''}
-                                    ${associationMarkup.join('')}
-
-                                    ${algorithmMarkup.length ? '<h4>Algorithms:</h4>' : ''}
-                                    ${algorithmMarkup.join('')}
-
-                                    <div>
-                                        <input id='org-form-sub' class='ui-button ui-widget ui-corner-all' type='submit' value='Submit' />
-                                    </div>
-                                    </form>`
+                        const markup = generateDialogHTML(selectedNode)
                         $(this).html(markup);
+                    },
+                    close: function() {
+                        associationState = {
+                            old: undefined,
+                            new: undefined
+                        }
                     },
                     buttons: {
                         "Close": function () {
                             $(this).dialog("close");
                         },
-                        "Submit": function () {
-                            // $('#msg').html($("#f1").serialize());
-                            $(this).dialog("close");
-                        }
+                        // "Submit": function () {
+                        //     // $('#msg').html($("#f1").serialize());
+                        //     $(this).dialog("close");
+                        // }
                     }
                 });
             });
