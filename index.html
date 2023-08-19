@@ -6,8 +6,10 @@
     <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
     <title>Provisioning Util</title>
     <meta name="viewport" content="width=device-width" />
-    <link rel="stylesheet" href="//static.jstree.com/latest/assets/dist/themes/default/style.min.css" />
-    <link href="https://code.jquery.com/ui/1.10.4/themes/ui-lightness/jquery-ui.css" rel="stylesheet">
+    <link rel="stylesheet" href="./jstree.style.min.css" />
+    <link href="./jquery.ui.css" rel="stylesheet">
+    <!-- <link rel="stylesheet" href="//static.jstree.com/latest/assets/dist/themes/default/style.min.css" />
+    <link href="https://code.jquery.com/ui/1.10.4/themes/ui-lightness/jquery-ui.css" rel="stylesheet"> -->
     <style>
         html,
         body {
@@ -174,20 +176,17 @@
 
 <body>
     <button id="get-tree-data">Get Tree Data</button>
-    <div id="dialog_node">
-        <!-- <form id='f1'>
-            <p>First Name<input type=text id=t1 name=t1><br>
-            Second Name<input type=text id=t2 name=t2>
-        </form> -->
-        <!-- </p> -->
-    </div>
+    <div id="dialog_node"></div>
     <div id="container" role="main">
         <div id="tree"></div>
     </div>
 
-    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.7.0/jquery.min.js"></script>
+    <script src="./jquery.js"></script>
+    <script src="./jstree.js"></script>
+    <script src="./jqueryui.js"></script>
+    <!-- <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.7.0/jquery.min.js"></script>
     <script src="//static.jstree.com/latest/assets/dist/jstree.min.js"></script>
-    <script src="https://code.jquery.com/ui/1.13.2/jquery-ui.min.js"></script>
+    <script src="https://code.jquery.com/ui/1.13.2/jquery-ui.min.js"></script> -->
     <script type="text/javascript" src="./loadash.js"></script>
 
     <script>
@@ -570,12 +569,13 @@
                     $inputs.each(function() {
                         values[this.name] = $(this).val();
                     });
-                    if (associationState.new) {
-                        selectedNode = {...selectedNode, associations: associationState.new.associations}
-                    }
+                    
                     const foundNode = searchTree(hierarchyData, selectedNode.id)
                     if (associationState.new) {
                         foundNode.associations = associationState.new.associations
+                    }
+                    if (algorithmAssociationState.new) {
+                        foundNode.algorithms = algorithmAssociationState.new.algorithms
                     }
                     const keyValFirstLevel = Object.entries(selectedNode)
                     if (foundNode && keyValFirstLevel.length) {
@@ -636,6 +636,10 @@
                     old: undefined,
                     new: undefined
                 }
+                let algorithmAssociationState = {
+                    old: undefined,
+                    new: undefined
+                }
                 handleDeleteSensorAssociation = (id) => {
                     console.log('In handle delete association: ', id)
                     if (!associationState.old) {
@@ -644,7 +648,6 @@
                     if (!associationState.new) {
                         associationState.new = _.cloneDeep(associationState.old)
                     }
-                    associationState.new
                     
                     const associations = associationState.new?.associations || []
                     if (associations.length) {
@@ -666,6 +669,22 @@
 
                 handleDeleteAlgorithmAssociation = (algorithmName) => {
                     console.log('In handle Delete Algorithm', algorithmName)
+                    if (!algorithmAssociationState.old) {
+                        algorithmAssociationState.old = _.cloneDeep(selectedNode)
+                    }
+                    if (!algorithmAssociationState.new) {
+                        algorithmAssociationState.new = _.cloneDeep(algorithmAssociationState.old)
+                    }
+                    
+                    const algorithms = algorithmAssociationState.new?.algorithms || []
+                    if (algorithms.length) {
+                        const algoIndex = algorithms.findIndex(al => al.algorithm_name = algorithmName)
+                        if (algoIndex >= 0) {
+                            algorithms.splice(algoIndex, 1)
+                            const markup = generateDialogHTML(algorithmAssociationState.new)
+                            $("#dialog_node").html(markup)
+                        }
+                    }
                 }
                 
                 var pos = { my: "center center", at: "center top+150", of: window };
@@ -687,6 +706,10 @@
                     },
                     close: function() {
                         associationState = {
+                            old: undefined,
+                            new: undefined
+                        }
+                        algorithmAssociationState = {
                             old: undefined,
                             new: undefined
                         }
