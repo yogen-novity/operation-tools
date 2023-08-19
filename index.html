@@ -290,22 +290,34 @@
             }
         });
         const associationMapForSensors = {}
-        const findNodeById = (nodes, id) => {
-            if (!nodes.length) {
-                return
-            } else {
-                const foundNode = nodes.find(node => node.id === id)
-                if (foundNode) {
-                    return foundNode
-                } else {
-                    nodes.forEach(node => {
-                        if (node?.subnodes?.length) {
-                            findNodeById(node.subnodes, id)
-                        }
-                    })
+
+        function searchTree(element, id) {
+            if(element.id == id){
+                return element;
+            }else if (element?.subnodes?.length){
+                let result = null;
+                for(let i=0; result == null && i < element.subnodes.length; i++){
+                    result = searchTree(element.subnodes[i], id);
                 }
+                return result;
             }
+            return null;
         }
+
+        // const findNodeById = (id, node) => {
+        //     const foundNode = nodes.find(node => node.id === id)
+        //     if (foundNode) {
+        //         return foundNode
+        //     } else {
+        //         let result
+        //         nodes.forEach(node => {
+        //             if (node?.subnodes?.length) {
+        //                 result = findNodeById(node.subnodes, id)
+        //             }
+        //         })
+        //         return result
+        //     }
+        // }
         const generateAssociationMap = (nodes) => {
             if (!nodes.length) {
                 return
@@ -457,14 +469,13 @@
             $(function () {
                 $(document).on("submit", "#org-dialog-form", function(e){
                     e.preventDefault()
-                    console.log('Form is submitted', e)
                     const $inputs = $('#org-dialog-form :input[type="text"]');
-                    console.log('Input fields: ', )
+                    console.log('Input fields: ', $inputs)
                     const values = {};
                     $inputs.each(function() {
                         values[this.name] = $(this).val();
                     });
-                    const foundNode = findNodeById(hierarchyData.subnodes, selectedNode.id)
+                    const foundNode = searchTree(hierarchyData, selectedNode.id)
                     const keyValFirstLevel = Object.entries(selectedNode)
                     if (foundNode && keyValFirstLevel.length) {
                         keyValFirstLevel.forEach(o => {
@@ -482,6 +493,21 @@
                                 }
                             })
                         }
+                    }
+                    if (foundNode?.algorithms?.length) {
+                        foundNode.algorithms = foundNode.algorithms.map(algo => {
+                            algo.algorithm_name = values[`${algo.algorithm_name}-name`]
+                            if (algo?.parameters?.length) {
+                                algo.parameters = algo.parameters.map(param => {
+                                    const genKey = `${algo.algorithm_name}::${param.parameter_name}`
+                                    return {
+                                        parameter_name: param.parameter_name,
+                                        value: values?.[genKey] || ''
+                                    }
+                                })
+                            }
+                            return algo
+                        })
                     }
                     console.log('Values: ', values)
                     generateAssociationMap(hierarchyData.subnodes)
@@ -566,13 +592,13 @@
                                                         paramMarkup = params.map(param => {
                                                             return `<div>
                                                                         <label>${param.parameter_name}</label>
-                                                                        <input type='text' name='${algoName}-${param.parameter_name}' value='${param.value}' />
+                                                                        <input type='text' name='${algoName}::${param.parameter_name}' value='${param.value}' />
                                                                       </div>`
                                                         })
                                                     }
                                                     return `<div>
-                                                                <label>Name</label>
-                                                                <input type='text' name='name' value='${algoName}' />
+                                                                <label>Name: </label>
+                                                                <input type='text' name='${algoName}-name' value='${algoName}' />
                                                                 <div class='algo-params'>
                                                                     <h3>Parameters</h3>
                                                                     <div>
